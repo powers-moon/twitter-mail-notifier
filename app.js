@@ -3,9 +3,9 @@ const { TwitterApi } = require('twitter-api-v2');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 
-// ====== İ’è ======
+// ====== è¨­å®š ======
 const BEARER_TOKEN = process.env.X_BEARER_TOKEN;
-const TARGET_USERNAME = process.env.TARGET_USERNAME; // ’Ê’m‚µ‚½‚¢Xƒ†[ƒU[
+const TARGET_USERNAME = process.env.TARGET_USERNAME; // é€šçŸ¥ã—ãŸã„Xãƒ¦ãƒ¼ã‚¶ãƒ¼
 const EMAIL_FROM = process.env.EMAIL_FROM;
 const EMAIL_TO = process.env.EMAIL_TO;
 
@@ -44,17 +44,17 @@ async function fetchAndSend() {
       await transporter.sendMail({
         from: EMAIL_FROM,
         to: EMAIL_TO,
-        subject: `XV’…ƒcƒC[ƒg: ${TARGET_USERNAME}`,
+        subject: `Xæ–°ç€ãƒ„ã‚¤ãƒ¼ãƒˆ: ${TARGET_USERNAME}`,
         text: body
       });
 
-      console.log(`‘—MŠ®—¹: ${newTweets.length}Œ`);
+      console.log(`é€ä¿¡å®Œäº†: ${newTweets.length}ä»¶`);
     } else {
-      console.log('V’…‚È‚µ');
+      console.log('æ–°ç€ãªã—');
     }
   } catch (err) {
-    console.error('ƒGƒ‰[', err);
-    process.exit(1); // GitHub Actions ‚Å¸”sˆµ‚¢‚É‚·‚é
+    console.error('ã‚¨ãƒ©ãƒ¼', err);
+    process.exit(1); // GitHub Actions ã§å¤±æ•—æ‰±ã„ã«ã™ã‚‹
   }
 }
 

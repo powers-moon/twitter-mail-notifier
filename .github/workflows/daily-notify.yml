@@ -2,9 +2,8 @@ name: Daily Twitter Mail Notify
 
 on:
   schedule:
-    # –ˆ“ú9(JST)Às ¨ UTC‚Å‚Í0
-    - cron: '0 0 * * *'
-  workflow_dispatch: # è“®Às‚à‰Â”\
+    - cron: '0 16 * * *'  # æ¯æ—¥AM1æ™‚JSTã«å®Ÿè¡Œ
+  workflow_dispatch: # æ‰‹å‹•å®Ÿè¡Œã‚‚å¯èƒ½
 
 jobs:
   run-script:
