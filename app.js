@@ -4,7 +4,7 @@ const nodemailer = require('nodemailer');
 const fs = require('fs');
 
 // ====== 設定 ======
-const BEARER_TOKEN = process.env.X_BEARER_TOKEN;
+const BEARER_TOKEN = process.env.BEARER_TOKEN;
 const TARGET_USERNAME = process.env.TARGET_USERNAME; // 通知したいXユーザー
 const EMAIL_FROM = process.env.EMAIL_FROM;
 const EMAIL_TO = process.env.EMAIL_TO;
