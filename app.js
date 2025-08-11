@@ -32,6 +32,8 @@ async function fetchAndSend() {
     });
 
     let lastId = fs.existsSync(LAST_ID_FILE) ? fs.readFileSync(LAST_ID_FILE, 'utf-8') : null;
+    console.log('tweets.data:', tweets.data);
+
     const newTweets = tweets.data?.filter(t => !lastId || t.id > lastId) || [];
 
     if (newTweets.length > 0) {
