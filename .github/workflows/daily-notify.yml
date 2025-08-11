@@ -1,0 +1,25 @@
+name: Daily Twitter Mail Notify
+
+on:
+  schedule:
+    # ñàì˙9éû(JST)é¿çs Å® UTCÇ≈ÇÕ0éû
+    - cron: '0 0 * * *'
+  workflow_dispatch: # éËìÆé¿çsÇ‡â¬î\
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: node app.js
+        env:
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+          TARGET_USERNAME: ${{ secrets.TARGET_USERNAME }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASS: ${{ secrets.GMAIL_PASS }}

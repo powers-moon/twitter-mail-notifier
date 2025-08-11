@@ -1,0 +1,13 @@
+{
+  "name": "twitter-mail-notifier",
+  "version": "1.0.0",
+  "main": "app.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.4",
+    "twitter-api-v2": "^1.16.0"
+  }
+}
