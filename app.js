@@ -1,27 +1,77 @@
-const allTweets = tweets.data.data || [];
+// app.js
+const { TwitterApi } = require('twitter-api-v2');
+const nodemailer = require('nodemailer');
+const fs = require('fs');
 
-// ツイートIDの大小を数値として比較できるように BigInt を使用
-const sortedTweets = allTweets.sort((a, b) => BigInt(a.id) - BigInt(b.id));
+// ====== 設定 ======
+const BEARER_TOKEN = process.env.BEARER_TOKEN;
+const TARGET_USERNAME = process.env.TARGET_USERNAME; // 通知したいXユーザー
+const EMAIL_FROM = process.env.EMAIL_FROM;
+const EMAIL_TO = process.env.EMAIL_TO;
 
-// 前回の lastId より新しいツイートだけを残す
-const newTweets = sortedTweets.filter(t => !lastId || BigInt(t.id) > BigInt(lastId));
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS,
+  },
+});
 
-if (newTweets.length > 0) {
-  // 最新ツイートの ID を保存（最後の要素が一番新しい）
-  fs.writeFileSync(LAST_ID_FILE, newTweets[newTweets.length - 1].id);
+const client = new TwitterApi(BEARER_TOKEN);
+const LAST_ID_FILE = './last_id.txt';
 
-  const body = newTweets.map(t =>
-    `${t.created_at}\n${t.text}\nhttps://x.com/${TARGET_USERNAME}/status/${t.id}`
-  ).join('\n\n');
+async function fetchAndSend() {
+  try {
+    // 対象ユーザーのIDを取得
+    const user = await client.v2.userByUsername(TARGET_USERNAME);
+    const userId = user.data.id;
 
-  await transporter.sendMail({
-    from: EMAIL_FROM,
-    to: EMAIL_TO,
-    subject: `X新着ツイート: ${TARGET_USERNAME}`,
-    text: body
-  });
+    // 最新ツイート取得
+    const tweets = await client.v2.userTimeline(userId, {
+      max_results: 5,
+      'tweet.fields': ['created_at', 'text', 'id'],
+      exclude: 'retweets,replies'
+    });
 
-  console.log(`送信完了: ${newTweets.length}件`);
-} else {
-  console.log('新着なし');
+    // 前回取得したIDを読み込み
+    let lastId = fs.existsSync(LAST_ID_FILE)
+      ? fs.readFileSync(LAST_ID_FILE, 'utf-8').trim()
+      : null;
+
+    const allTweets = tweets.data?.data || [];
+
+    // ツイートを古い順に並べ替え
+    const sortedTweets = allTweets.sort((a, b) => BigInt(a.id) - BigInt(b.id));
+
+    // 新着のみ抽出
+    const newTweets = sortedTweets.filter(
+      t => !lastId || BigInt(t.id) > BigInt(lastId)
+    );
+
+    if (newTweets.length > 0) {
+      // 最新ツイートのIDを保存
+      fs.writeFileSync(LAST_ID_FILE, newTweets[newTweets.length - 1].id);
+
+      const body = newTweets.map(t =>
+        `${t.created_at}\n${t.text}\nhttps://x.com/${TARGET_USERNAME}/status/${t.id}`
+      ).join('\n\n');
+
+      await transporter.sendMail({
+        from: EMAIL_FROM,
+        to: EMAIL_TO,
+        subject: `X新着ツイート: ${TARGET_USERNAME}`,
+        text: body
+      });
+
+      console.log(`送信完了: ${newTweets.length}件`);
+    } else {
+      console.log('新着なし');
+    }
+  } catch (err) {
+    console.error('エラー', err);
+    process.exit(1);
+  }
 }
+
+// 実行
+fetchAndSend();
