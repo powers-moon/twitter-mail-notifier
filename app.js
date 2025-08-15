@@ -1,4 +1,4 @@
-const allTweets = tweets.data || [];
+const allTweets = tweets.data.data || [];
 
 // ツイートIDの大小を数値として比較できるように BigInt を使用
 const sortedTweets = allTweets.sort((a, b) => BigInt(a.id) - BigInt(b.id));
