@@ -5,7 +5,7 @@ const fs = require('fs');
 
 // ====== 設定 ======
 const BEARER_TOKEN = process.env.BEARER_TOKEN;
-const TARGET_USERNAME = process.env.TARGET_USERNAME;
+const TARGET_USERNAME = process.env.TARGET_USERNAME; // 通知したいXユーザー
 const EMAIL_FROM = process.env.EMAIL_FROM;
 const EMAIL_TO = process.env.EMAIL_TO;
 
@@ -20,45 +20,41 @@ const transporter = nodemailer.createTransport({
 const client = new TwitterApi(BEARER_TOKEN);
 const LAST_ID_FILE = './last_id.txt';
 
-// ====== ユーティリティ ======
-function sleep(ms) {
+// ==== ヘルパー関数 ====
+async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchTweetsWithRetry(userId, retries = 5) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const tweets = await client.v2.userTimeline(userId, {
-        max_results: 5,
-        'tweet.fields': ['created_at', 'text', 'id'],
-        exclude: 'retweets,replies'
-      });
-      return tweets;
-    } catch (err) {
-      if (err.code === 429) {
-        const reset = err.rateLimit?.reset ? parseInt(err.rateLimit.reset, 10) * 1000 : 60000;
-        const waitTime = reset - Date.now();
-        console.warn(`レート制限 429 発生、${waitTime / 1000}s 待機して再試行`);
-        await sleep(waitTime > 0 ? waitTime : 60000);
-      } else {
-        throw err;
-      }
-    }
-  }
-  throw new Error('最大リトライ回数に達しました');
-}
-
-// ====== メイン処理 ======
+// ==== メイン関数 ====
 async function fetchAndSend() {
   try {
     const user = await client.v2.userByUsername(TARGET_USERNAME);
     const userId = user.data.id;
 
-    const tweets = await fetchTweetsWithRetry(userId);
+    let tweets;
+    while (true) {
+      try {
+        tweets = await client.v2.userTimeline(userId, {
+          max_results: 5,
+          'tweet.fields': ['created_at', 'text', 'id'],
+          exclude: 'retweets,replies'
+        });
+        break; // 成功したらループ終了
+      } catch (err) {
+        if (err.code === 429 && err.rateLimit) {
+          const waitSec = err.rateLimit.reset - Math.floor(Date.now() / 1000);
+          console.log(`429 Too Many Requests, ${waitSec}s 待機して再試行します...`);
+          await sleep((waitSec + 1) * 1000);
+        } else {
+          throw err;
+        }
+      }
+    }
 
     let lastId = fs.existsSync(LAST_ID_FILE) ? fs.readFileSync(LAST_ID_FILE, 'utf-8') : null;
+    const allTweets = tweets.data?.data || [];
 
-    const allTweets = tweets.data || [];
+    // ID の大小比較用に BigInt を使用してソート
     const sortedTweets = allTweets.sort((a, b) => {
       const idA = BigInt(a.id);
       const idB = BigInt(b.id);
@@ -67,9 +63,11 @@ async function fetchAndSend() {
       return 0;
     });
 
+    // 新着ツイートだけ抽出
     const newTweets = sortedTweets.filter(t => !lastId || BigInt(t.id) > BigInt(lastId));
 
     if (newTweets.length > 0) {
+      // 最新ツイートIDを保存（最後の要素が一番新しい）
       fs.writeFileSync(LAST_ID_FILE, newTweets[newTweets.length - 1].id);
 
       const body = newTweets.map(t =>
@@ -90,9 +88,9 @@ async function fetchAndSend() {
 
   } catch (err) {
     console.error('エラー', err);
-    process.exit(1);
+    process.exit(1); // GitHub Actions で失敗扱いにする
   }
 }
 
-// ====== 実行 ======
+// ==== 実行 ====
 fetchAndSend();
