@@ -1,63 +1,27 @@
-// app.js
-const { TwitterApi } = require('twitter-api-v2');
-const nodemailer = require('nodemailer');
-const fs = require('fs');
+const allTweets = tweets.data || [];
 
-// ====== 設定 ======
-const BEARER_TOKEN = process.env.BEARER_TOKEN;
-const TARGET_USERNAME = process.env.TARGET_USERNAME; // 通知したいXユーザー
-const EMAIL_FROM = process.env.EMAIL_FROM;
-const EMAIL_TO = process.env.EMAIL_TO;
+// ツイートIDの大小を数値として比較できるように BigInt を使用
+const sortedTweets = allTweets.sort((a, b) => BigInt(a.id) - BigInt(b.id));
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
-  },
-});
+// 前回の lastId より新しいツイートだけを残す
+const newTweets = sortedTweets.filter(t => !lastId || BigInt(t.id) > BigInt(lastId));
 
-const client = new TwitterApi(BEARER_TOKEN);
-const LAST_ID_FILE = './last_id.txt';
+if (newTweets.length > 0) {
+  // 最新ツイートの ID を保存（最後の要素が一番新しい）
+  fs.writeFileSync(LAST_ID_FILE, newTweets[newTweets.length - 1].id);
 
-async function fetchAndSend() {
-  try {
-    const user = await client.v2.userByUsername(TARGET_USERNAME);
-    const userId = user.data.id;
+  const body = newTweets.map(t =>
+    `${t.created_at}\n${t.text}\nhttps://x.com/${TARGET_USERNAME}/status/${t.id}`
+  ).join('\n\n');
 
-    const tweets = await client.v2.userTimeline(userId, {
-      max_results: 5,
-      'tweet.fields': ['created_at', 'text', 'id'],
-      exclude: 'retweets,replies'
-    });
+  await transporter.sendMail({
+    from: EMAIL_FROM,
+    to: EMAIL_TO,
+    subject: `X新着ツイート: ${TARGET_USERNAME}`,
+    text: body
+  });
 
-    let lastId = fs.existsSync(LAST_ID_FILE) ? fs.readFileSync(LAST_ID_FILE, 'utf-8') : null;
-    console.log('tweets.data:', tweets.data);
-
-    const newTweets = tweets.data.data.filter(t => !lastId || t.id > lastId) || [];
-
-    if (newTweets.length > 0) {
-      fs.writeFileSync(LAST_ID_FILE, newTweets[0].id);
-
-      const body = newTweets.map(t =>
-        `${t.created_at}\n${t.text}\nhttps://x.com/${TARGET_USERNAME}/status/${t.id}`
-      ).join('\n\n');
-
-      await transporter.sendMail({
-        from: EMAIL_FROM,
-        to: EMAIL_TO,
-        subject: `X新着ツイート: ${TARGET_USERNAME}`,
-        text: body
-      });
-
-      console.log(`送信完了: ${newTweets.length}件`);
-    } else {
-      console.log('新着なし');
-    }
-  } catch (err) {
-    console.error('エラー', err);
-    process.exit(1); // GitHub Actions で失敗扱いにする
-  }
+  console.log(`送信完了: ${newTweets.length}件`);
+} else {
+  console.log('新着なし');
 }
-
-fetchAndSend();
